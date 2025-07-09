@@ -9,8 +9,18 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to your camera."
+      }
     },
+    // "ios": {
+      
+    //   "supportsTablet": true
+      
+      
+    // },
+    
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
