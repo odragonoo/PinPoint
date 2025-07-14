@@ -1,28 +1,43 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { useAuth } from '../lib/contexts/AuthContext';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
+  if (!loaded) return null;
+
+  return <RootLayoutInner />;
+}
+
+function RootLayoutInner() {
+  const colorScheme = useColorScheme();
+  const segments = useSegments();
+  const router = useRouter();
+  const { currentUser, initializing } = useAuth();
+
+  useEffect(() => {
+    if (initializing) return;
+    const inAuthGroup = segments[0] === 'login';
+    console.log("Auth state changed. currentUser:", currentUser);
+    if (!currentUser && !inAuthGroup) {
+      router.replace('/login');
+    } else if (currentUser && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [currentUser, initializing, segments]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      <Slot />
       <StatusBar style="auto" />
     </ThemeProvider>
   );

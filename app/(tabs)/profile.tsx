@@ -1,10 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import React from 'react';
-import { Button, Image, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity } from 'react-native';
-import { useNavigation } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
+import { signOut } from 'firebase/auth';
+import React from 'react';
+import { Button, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { auth } from '../../lib/firebase';
 
 export default function ProfileScreen() {
   // Placeholder data for the user profile
@@ -17,9 +18,13 @@ export default function ProfileScreen() {
 
   const navigation = useNavigation();
 
-  const handleSignOut = () => {
-    // In a real app, you would handle sign-out logic here.
-    alert('Signed Out!');
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      router.replace('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
 return (
@@ -44,8 +49,8 @@ return (
       </ThemedText>
       <ThemedText style={styles.username}>{user.username}</ThemedText>
       <ThemedText style={styles.bio}>{user.bio}</ThemedText>
-      <View style={styles.buttonContainer}>
-        <Button title="Sign Out" onPress={handleSignOut} color="#ff3b30" />
+      <View style={{ marginTop: 30, alignItems: 'center' }}>
+        <Button title="Sign Out" onPress={handleSignOut} color="grey" />
       </View>
     </ThemedView>
   </View>
@@ -83,11 +88,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 30,
   },
-  buttonContainer: {
-    marginTop: 'auto', // Pushes the button to the bottom
-    marginBottom: 40,
-    width: '80%',
-  },
+  // buttonContainer removed; now inlined in JSX
   settingsButton: {
   position: 'absolute',
   top: 60,
