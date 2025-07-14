@@ -4,7 +4,7 @@
     "slug": "PinPoint",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/AppIcon.png",
+    "icon": "./assets/images/Appicon.png",
     "scheme": "testapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
