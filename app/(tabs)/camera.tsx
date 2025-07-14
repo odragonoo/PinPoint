@@ -1,16 +1,38 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Image } from 'react-native';
+import { CameraView, useCameraPermissions, useCameraDevice, Camera } from 'expo-camera';
+import * as Location from 'expo-location';
+
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function CameraTabScreen() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState('back');
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const router = useRouter();
+  const cameraRef = useRef<Camera>(null);
 
-  // Show a loading indicator while waiting for the permission status.
+  const handleSend = () => {
+  console.log('Send button pressed');
+  alert('Photo sent! (simulation)');
+};
+
+  // Request location permission on mount
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('Permission to access location was denied');
+        return;
+      }
+    })();
+  }, []);
+
+  // Show loading if no camera permission info yet
   if (!permission) {
     return (
       <View style={styles.container}>
@@ -19,7 +41,7 @@ export default function CameraTabScreen() {
     );
   }
 
-  // If permissions are not granted, show a message and a button to request them.
+  // Ask for permission if not granted
   if (!permission.granted) {
     return (
       <View style={styles.permissionContainer}>
@@ -36,39 +58,71 @@ export default function CameraTabScreen() {
     );
   }
 
-  // Function to toggle between front and back camera
-  function toggleCameraFacing() {
+  const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
-  }
+  };
 
-  // Function to handle taking a picture (placeholder)
-  const handleTakePicture = () => {
-    alert('Photo taken! (simulation)');
-    // In a real app, you would use cameraRef.current.takePictureAsync()
+  const handleTakePicture = async () => {
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync({
+        mirrorImage: false,
+      });
+      setPhotoUri(photo.uri);
+
+      try {
+        const loc = await Location.getCurrentPositionAsync({});
+        setLocation(loc);
+      } catch (err) {
+        console.error('Error getting location:', err);
+      }
+    }
   };
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing}>
-        <View style={styles.cameraUIContainer}>
-          {/* Top controls: Close and Flip Camera */}
-          <View style={styles.topControls}>
-            <TouchableOpacity style={styles.controlButton} onPress={() => router.back()}>
-              <Ionicons name="close" size={32} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-              <Ionicons name="camera-reverse" size={32} color="white" />
-            </TouchableOpacity>
-          </View>
+      {photoUri ? (
+        <View style={styles.container}>
 
-          {/* Bottom controls: Shutter button */}
-          <View style={styles.bottomControls}>
-            <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
-              <View style={styles.shutterButtonInner} />
-            </TouchableOpacity>
+          <Image source={{ uri: photoUri }} style={styles.fullScreenImage} resizeMode="cover" />
+          <TouchableOpacity style={styles.closePreviewButton} onPress={() => {
+            setPhotoUri(null);
+            setLocation(null);
+          }}>
+            <Ionicons name="close" size={32} color="white" />
+          </TouchableOpacity>
+
+          {/* Show location */}
+          {location && (
+            <View style={styles.locationBox}>
+              <Text style={styles.locationText}>
+                Lat: {location.coords.latitude.toFixed(5)}, Lon: {location.coords.longitude.toFixed(5)}
+              </Text>
+            </View>
+          )}
+                    <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+             <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.camera}>
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
+          <View style={styles.cameraUIContainer}>
+            <View style={styles.topControls}>
+              <TouchableOpacity style={styles.controlButton} onPress={() => router.back()}>
+                <Ionicons name="close" size={32} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+                <Ionicons name="camera-reverse" size={32} color="white" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.bottomControls}>
+              <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
+                <View style={styles.shutterButtonInner} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </CameraView>
+      )}
     </View>
   );
 }
@@ -80,6 +134,7 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+    position: 'relative',
   },
   cameraUIContainer: {
     flex: 1,
@@ -144,4 +199,44 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#000',
   },
+  fullScreenImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },  
+  sendButton: {
+  position: 'absolute',
+  bottom: 30,
+  right: 20,
+  backgroundColor: '#007AFF',
+  paddingVertical: 10,
+  paddingHorizontal: 20,
+  borderRadius: 20,
+},
+sendButtonText: {
+  color: 'white',
+  fontSize: 16,
+  fontWeight: 'bold',
+},
+  closePreviewButton: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    padding: 8,
+    borderRadius: 20,
+  },
+  locationBox: {
+    position: 'absolute',
+    top: 60, // adjust as needed
+    alignSelf: 'center', // centers content horizontally
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 10,
+    borderRadius: 20,
+  },
+  locationText: {
+    color: 'white',
+    fontSize: 14,
+  },
+
+
 });
