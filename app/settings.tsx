@@ -23,13 +23,13 @@ export default function SettingsScreen() {
       style={styles.gradient}
     >
       {/* Custom Header */}
-      {/* <View style={styles.header}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={28} color="#FFA726" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 28 }} /> Spacer to balance layout */}
-      {/* </View> */}
+        <View style={{ width: 28 }} /> 
+      </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Section: Account */}

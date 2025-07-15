@@ -1,127 +1,219 @@
-import { ThemedText } from '@/components/ThemedText';
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'react-native';
-import { CameraView, useCameraPermissions, useCameraDevice, Camera } from 'expo-camera';
+import React, { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, Image, TextInput, ScrollView } from 'react-native';
+import { CameraView, useCameraPermissions, Camera } from 'expo-camera';
 import * as Location from 'expo-location';
-
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect, useRef } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { storage } from '../../firebaseConfig'; // adjust path
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function CameraTabScreen() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const router = useRouter();
+  const [caption, setCaption] = useState('');
+  const [locationName, setLocationName] = useState<string | null>(null);
   const cameraRef = useRef<Camera>(null);
+  const router = useRouter();
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
 
-  const handleSend = () => {
-  console.log('Send button pressed');
-  alert('Photo sent! (simulation)');
-};
 
-  // Request location permission on mount
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.warn('Permission to access location was denied');
-        return;
+        console.warn('Location permission not granted');
       }
     })();
   }, []);
 
-  // Show loading if no camera permission info yet
-  if (!permission) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#fff" />
-      </View>
-    );
+  const handleTakePicture = async () => {
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync({ mirrorImage: false });
+      setPhotoUri(photo.uri);
+
+      try {
+        const loc = await Location.getCurrentPositionAsync({});
+        const geocode = await Location.reverseGeocodeAsync(loc.coords);
+        if (geocode.length > 0) {
+          const place = geocode[0];
+          const name = place.name || place.street || `${place.city}, ${place.region}`;
+          setLocationName(name);
+        }
+      } catch (err) {
+        console.error('Error getting location name:', err);
+      }
+    }
+  };
+
+const handleSendPin = async () => {
+  if (!photoUri) {
+    alert('No photo captured');
+    return;
   }
 
-  // Ask for permission if not granted
+      console.log('Pin sent:', { photoUri, caption, locationName });
+    // Placeholder action - send this to backend, etc.
+    alert('Pin submitted!');
+    setPhotoUri(null);
+    setCaption('');
+    setLocationName(null);
+
+  const uploadImageToFirebase = async (uri: string) => {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+
+  const filename = `images/${Date.now()}.jpg`;
+  const storageRef = ref(storage, filename);
+
+  await uploadBytes(storageRef, blob);
+  const downloadURL = await getDownloadURL(storageRef);
+
+  try {
+    const downloadURL = await uploadImageToFirebase(photoUri!);
+    console.log('Image uploaded:', downloadURL);
+
+    // Optionally save to Firestore:
+    // await addDoc(collection(db, 'pins'), {
+    //   imageUrl: downloadURL,
+    //   caption,
+    //   locationName,
+    //   createdAt: new Date(),
+    // });
+
+    alert('Pin uploaded!');
+    setPhotoUri(null);
+    setCaption('');
+    setLocationName(null);
+  } catch (error) {
+    console.error('Upload failed:', error);
+    alert('Upload failed');
+  }
+
+
+  return downloadURL;
+};
+
+  try {
+    const loc = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = loc.coords;
+
+    // Navigate to map.tsx with photo URI and location
+    router.push({
+      pathname: '/map',
+      params: {
+        photoUri,
+        latitude: latitude.toString(),
+        longitude: longitude.toString(),
+        caption,
+        locationName: locationName || '',
+      },
+    });
+
+    // Clear UI state
+    setPhotoUri(null);
+    setCaption('');
+    setLocationName(null);
+  } catch (err) {
+    console.error('Failed to get location:', err);
+    alert('Location error');
+  }
+};
+
+
+  if (!permission) {
+    return <View style={styles.container} />;
+  }
+
   if (!permission.granted) {
     return (
-      <View style={styles.permissionContainer}>
-        <ThemedText type="title" style={styles.permissionText}>
-          Camera access is required
-        </ThemedText>
-        <ThemedText style={styles.permissionSubText}>
-          Please grant permission to use the camera to take photos and videos.
-        </ThemedText>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+      <View style={styles.container}>
+        <Text style={{ color: 'white' }}>Camera permission is required.</Text>
+        <TouchableOpacity onPress={requestPermission}>
+          <Text style={{ color: '#00AEEF' }}>Grant Permission</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const toggleCameraFacing = () => {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
-  };
-
-  const handleTakePicture = async () => {
-    if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync({
-        mirrorImage: false,
-      });
-      setPhotoUri(photo.uri);
-
-      try {
-        const loc = await Location.getCurrentPositionAsync({});
-        setLocation(loc);
-      } catch (err) {
-        console.error('Error getting location:', err);
-      }
-    }
-  };
-
   return (
     <View style={styles.container}>
       {photoUri ? (
-        <View style={styles.container}>
-
-          <Image source={{ uri: photoUri }} style={styles.fullScreenImage} resizeMode="cover" />
-          <TouchableOpacity style={styles.closePreviewButton} onPress={() => {
-            setPhotoUri(null);
-            setLocation(null);
-          }}>
-            <Ionicons name="close" size={32} color="white" />
+        <ScrollView contentContainerStyle={styles.previewScreen}>
+          {/* Close Button */}
+          <TouchableOpacity style={styles.closeButton} onPress={() => setPhotoUri(null)}>
+            <Ionicons name="close" size={36} color="white" />
           </TouchableOpacity>
 
-          {/* Show location */}
-          {location && (
-            <View style={styles.locationBox}>
-              <Text style={styles.locationText}>
-                Lat: {location.coords.latitude.toFixed(5)}, Lon: {location.coords.longitude.toFixed(5)}
-              </Text>
-            </View>
-          )}
-                    <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-             <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.camera}>
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
-          <View style={styles.cameraUIContainer}>
-            <View style={styles.topControls}>
-              <TouchableOpacity style={styles.controlButton} onPress={() => router.back()}>
-                <Ionicons name="close" size={32} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-                <Ionicons name="camera-reverse" size={32} color="white" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.bottomControls}>
-              <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
-                <View style={styles.shutterButtonInner} />
-              </TouchableOpacity>
-            </View>
+          {/* Location Label */}
+          <View style={styles.locationLabel}>
+            <Ionicons name="location-sharp" size={20} color="black" />
+            <Text style={styles.locationText}>{locationName || 'Unknown Location'}</Text>
           </View>
-        </View>
+
+          {/* Image Preview with background frame */}
+          <View style={styles.imageCard}>
+            <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
+          </View>
+
+          {/* Caption Input */}
+          <View style={styles.captionBox}>
+            <TextInput
+              value={caption}
+              onChangeText={setCaption}
+              placeholder="Add a caption..."
+              placeholderTextColor="#ccc"
+              style={styles.captionInput}
+            />
+          </View>
+
+          {/* Edit Tools */}
+          <View style={styles.toolsRow}>
+            {[
+              // { label: 'Text', icon: 'text' },
+              { label: 'Sticker', icon: 'image-outline' },
+              { label: 'Overlay', icon: 'layers-outline' },
+              { label: 'Edit', icon: 'settings-outline' },
+              { label: 'Music', icon: 'musical-notes-outline' },
+            ].map((tool, index) => (
+              <View style={styles.toolItem} key={index}>
+                <Ionicons name={tool.icon} size={22} color="white" />
+                <Text style={styles.toolLabel}>{tool.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Pin Button */}
+          <TouchableOpacity style={styles.pinButton} onPress={handleSendPin}>
+            <Text style={styles.pinButtonText}>Pin</Text>
+            <Ionicons name="location" size={18} color="white" style={{ marginLeft: 5 }} />
+          </TouchableOpacity>
+        </ScrollView>
+      ) : (
+<View style={styles.camera}>
+  <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
+
+
+  {/* Top Buttons */}
+  <View style={styles.topControls}>
+    <TouchableOpacity style={styles.controlButton} onPress={() => router.back()}>
+      <Ionicons name="close" size={32} color="white" />
+    </TouchableOpacity>
+    <TouchableOpacity style={styles.controlButton} onPress={() => {
+      // toggle front/back camera
+      setFacing(prev => (prev === 'back' ? 'front' : 'back'));
+    }}>
+      <Ionicons name="camera-reverse" size={32} color="white" />
+    </TouchableOpacity>
+  </View>
+
+  {/* Shutter Button */}
+  <View style={styles.shutterWrapper}>
+    <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
+      <View style={styles.shutterButtonInner} />
+    </TouchableOpacity>
+  </View>
+</View>
+
       )}
     </View>
   );
@@ -136,50 +228,10 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  cameraUIContainer: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    justifyContent: 'space-between',
-    paddingBottom: 40,
-    paddingTop: 60,
-  },
-  topControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 20,
-  },
-  bottomControls: {
+  shutterWrapper: {
+    position: 'absolute',
+    bottom: 40,
     alignSelf: 'center',
-  },
-  controlButton: {
-    padding: 10,
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  permissionText: {
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  permissionSubText: {
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 16,
-  },
-  permissionButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-  },
-  permissionButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   shutterButton: {
     width: 70,
@@ -199,44 +251,96 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#000',
   },
-  fullScreenImage: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },  
-  sendButton: {
-  position: 'absolute',
-  bottom: 30,
-  right: 20,
-  backgroundColor: '#007AFF',
-  paddingVertical: 10,
-  paddingHorizontal: 20,
-  borderRadius: 20,
-},
-sendButtonText: {
-  color: 'white',
-  fontSize: 16,
-  fontWeight: 'bold',
-},
-  closePreviewButton: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    padding: 8,
-    borderRadius: 20,
+  previewScreen: {
+    alignItems: 'center',
+    backgroundColor: 'black',
+    paddingVertical: 40,
   },
-  locationBox: {
+  closeButton: {
     position: 'absolute',
-    top: 60, // adjust as needed
-    alignSelf: 'center', // centers content horizontally
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 10,
+    top: 40,
+    left: 20,
+    zIndex: 2,
+  },
+  locationLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
     borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 10,
   },
   locationText: {
-    color: 'white',
-    fontSize: 14,
+    color: 'black',
+    fontSize: 16,
+    marginLeft: 6,
   },
-
-
+  imageCard: {
+    width: '90%',
+    backgroundColor: '#8EDFD3',
+    borderRadius: 20,
+    padding: 10,
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 16,
+  },
+  captionBox: {
+    width: '90%',
+    backgroundColor: '#4C7D7E',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 20,
+  },
+  captionInput: {
+    color: 'white',
+    fontSize: 16,
+  },
+  toolsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 30,
+  },
+  toolItem: {
+    alignItems: 'center',
+  },
+  toolLabel: {
+    color: 'white',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  pinButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00AEEF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  pinButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  topControls: {
+  position: 'absolute',
+  top: 40,
+  left: 0,
+  right: 0,
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  paddingHorizontal: 20,
+  zIndex: 10,
+},
+controlButton: {
+  padding: 10,
+},
 });
