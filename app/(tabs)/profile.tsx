@@ -3,18 +3,36 @@ import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useNavigation } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import React from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import { Button, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { auth } from '../../lib/firebase';
+import { auth, firestore } from '../../lib/firebase';
 
 export default function ProfileScreen() {
-  // Placeholder data for the user profile
-  const user = {
-    name: 'Dennis Nguyen',
-    username: '@denthenguyen',
-    bio: 'I like using this app because it uses locations',
-    avatar: require('@/assets/images/dennis.png'), // Your local image
-  };
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const currentUser = auth.currentUser;
+
+      if (currentUser) {
+        try {
+          const userDocRef = doc(firestore, 'users', currentUser.uid);
+          const userSnapshot = await getDoc(userDocRef);
+
+          if (userSnapshot.exists()) {
+            setProfile(userSnapshot.data());
+          } else {
+            console.log('No user profile found!');
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+        }
+      }
+    };
+
+  fetchUserProfile();
+  }, []);
 
   const navigation = useNavigation();
 
@@ -32,23 +50,29 @@ return (
     {/* Settings Button */}
     <TouchableOpacity
       style={styles.settingsButton}
-      onPress={() => navigation.navigate('settings')} // <-- must match your route name
+      onPress={() => router.push({pathname: '//settings'})} //navigation.navigate('settings') <-- must match your route name
     >
       <Ionicons name="settings-outline" size={28} color="white" />
     </TouchableOpacity>
 
     {/* Rest of the Profile content */}
     <ThemedView style={styles.container}>
-      <Image
-        source={user.avatar}
-        style={styles.avatar}
-        onError={(e) => console.log('Failed to load image', e.nativeEvent.error)}
-      />
-      <ThemedText type="title" style={styles.name}>
-        {user.name}
-      </ThemedText>
-      <ThemedText style={styles.username}>{user.username}</ThemedText>
-      <ThemedText style={styles.bio}>{user.bio}</ThemedText>
+      {profile ? (
+        <>
+        <Image
+          source={{ uri: profile.avatar || 'https://via.placeholder.com/150' }}
+          style={styles.avatar}
+          onError={(e) => console.log('Failed to load image', e.nativeEvent.error)}
+        />
+        <ThemedText type="title" style={styles.name}>
+          {profile.name}
+        </ThemedText>
+        {/* <ThemedText style={styles.username}>{profile.username}</ThemedText> This doesn't exist yet*/}
+        <ThemedText style={styles.bio}>{profile.bio || "No bio yet..."}</ThemedText>
+        </>
+      ) : (
+        <ThemedText>Loading profile...</ThemedText>
+      )}
       <View style={{ marginTop: 30, alignItems: 'center' }}>
         <Button title="Sign Out" onPress={handleSignOut} color="grey" />
       </View>
