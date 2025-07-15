@@ -24,6 +24,7 @@ import {
   orderBy,
   query,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 
 // --- Types for our data ---
@@ -33,6 +34,7 @@ interface Conversation {
   avatar: string;
   lastMessage: string;
   timestamp: any;
+  participants: string[]; // Array of user UIDs
 }
 
 interface UserProfile {
@@ -112,7 +114,18 @@ export default function ChatScreen() {
 
   // --- Fetch conversations from Firebase ---
   useEffect(() => {
-    const q = query(collection(db, 'chats'), orderBy('timestamp', 'desc'));
+    if (!currentUser) {
+        setLoading(false);
+        return;
+    };
+
+    // This query now correctly filters for chats where the current user is a participant
+    const q = query(
+        collection(db, 'chats'), 
+        where('participants', 'array-contains', currentUser.uid),
+        orderBy('timestamp', 'desc')
+    );
+
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const convos: Conversation[] = [];
       querySnapshot.forEach((doc) => {
@@ -122,7 +135,7 @@ export default function ChatScreen() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   // --- Friend Management Functions ---
   const handleAcceptRequest = async (requesterId: string) => {

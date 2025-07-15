@@ -48,3 +48,14 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+
+
+
+
+
+## Documentation of the chat:
+- In firebase the initial chats collection is more of a folder of all chats ever done
+- within chats collection there is add collection and there thats the individual chat based on the people who are in it
+- Within that there is another collection that is the individual texts.
+- The fields are obviously the things that need to make up each thing so yea.
