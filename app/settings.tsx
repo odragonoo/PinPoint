@@ -39,7 +39,7 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Account</Text>
         <SettingsItem icon="person-outline" text="Edit Profile" onPress={() => router.push('/editprofile')}/>
         <SettingsItem icon="key-outline" text="Change Password" onPress={() => alert('Change password tapped')}/>
-        <SettingsItem icon="exit-outline" text="Logout" onPress={() => handleSignOut}/>
+        <SettingsItem icon="exit-outline" text="Logout" onPress={handleSignOut}/>
 
         {/* Section: General */}
         <Text style={[styles.sectionTitle, { marginTop: 30 }]}>General</Text>
