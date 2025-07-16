@@ -7,6 +7,8 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { useAuth } from '../lib/contexts/AuthContext';
+import { PhotoProvider } from '../lib/PhotoContext';
+
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -35,10 +37,13 @@ function RootLayoutInner() {
     }
   }, [currentUser, initializing, segments]);
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+return (
+  <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <PhotoProvider>
       <Slot />
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+    </PhotoProvider>
+    <StatusBar style="auto" />
+  </ThemeProvider>
+);
+
 }

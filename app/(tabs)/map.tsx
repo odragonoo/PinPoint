@@ -1,20 +1,47 @@
 import { ThemedView } from '@/components/ThemedView';
-import React, { useState } from 'react';
-import {Image, Modal, Platform, StyleSheet, Text, TouchableOpacity, View,} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import {
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { useLocalSearchParams } from 'expo-router';
+import { usePhotoStore } from '../../lib/PhotoContext';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function MapScreen() {
-  const { photoUri, latitude, longitude, caption, locationName } = useLocalSearchParams();
-
+  const { photos } = usePhotoStore();
+  const mapRef = useRef<MapView>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
 
-  const parsedLat = parseFloat(latitude as string);
-  const parsedLon = parseFloat(longitude as string);
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const isPickerMode = params?.mode === 'picker';
 
+  const groupedByLocation = photos.reduce((acc: any, photo: any) => {
+    const lat = parseFloat(photo.latitude);
+    const lon = parseFloat(photo.longitude);
+    const roundedLat = Math.round(lat * 1000) / 1000;
+    const roundedLon = Math.round(lon * 1000) / 1000;
+    const key = `${roundedLat},${roundedLon}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(photo);
+    return acc;
+  }, {});
+
+  const firstPhoto = photos[0];
   const region = {
-    latitude: parsedLat || 33.7756,
-    longitude: parsedLon || -84.3963,
+    latitude: firstPhoto ? parseFloat(firstPhoto.latitude) : 33.7756,
+    longitude: firstPhoto ? parseFloat(firstPhoto.longitude) : -84.3963,
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
   };
@@ -22,35 +49,80 @@ export default function MapScreen() {
   return (
     <ThemedView style={styles.container}>
       <MapView
+        ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
+        onPress={(e) => {
+          if (isPickerMode) {
+            const { latitude, longitude } = e.nativeEvent.coordinate;
+            router.push({
+              pathname: '/camera',
+              params: {
+                lat: latitude.toString(),
+                lng: longitude.toString(),
+              },
+            });
+          }
+        }}
       >
-        {photoUri && latitude && longitude && (
-          <Marker coordinate={{ latitude: parsedLat, longitude: parsedLon }}>
-            <TouchableOpacity onPress={() => setModalVisible(true)}>
-              <Image source={{ uri: photoUri as string }} style={styles.markerImage} />
-            </TouchableOpacity>
-          </Marker>
-        )}
+        {!isPickerMode &&
+          Object.entries(groupedByLocation).map(([key, group], index) => {
+            const [lat, lon] = key.split(',').map(Number);
+            return (
+              <Marker key={index} coordinate={{ latitude: lat, longitude: lon }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedPhotos(group);
+                    setModalVisible(true);
+                    mapRef.current?.animateToRegion({
+                      latitude: lat,
+                      longitude: lon,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005,
+                    }, 500);
+                  }}
+                >
+                  <View style={styles.markerWrapper}>
+                    <Image source={{ uri: group[0].photoUri }} style={styles.markerImage} />
+                    {group.length > 1 && (
+                      <View style={styles.photoCountBadge}>
+                        <Text style={styles.photoCountText}>{group.length}</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </Marker>
+            );
+          })}
       </MapView>
 
-      {/* Modal showing full image and details */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalBackground}>
           <View style={styles.modalContent}>
-            {/* 🟡 Location Name at the Top */}
-            {locationName ? (
-              <Text style={styles.locationName}>{locationName}</Text>
-            ) : null}
-
-            {/* Image */}
-            <Image source={{ uri: photoUri as string }} style={styles.fullImage} />
-
-            {/* Caption */}
-            {caption ? <Text style={styles.caption}>{caption}</Text> : null}
-
-            {/* Close Button */}
+            {selectedPhotos.length > 0 && (
+              <>
+                <Text style={styles.locationName}>{selectedPhotos[0].locationName}</Text>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  snapToAlignment="center"
+                  decelerationRate="fast"
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ alignItems: 'center' }}
+                  style={{ width: SCREEN_WIDTH * 0.9 }}
+                >
+                  {selectedPhotos.map((photo, idx) => (
+                    <View key={idx} style={styles.carouselItem}>
+                      <Image source={{ uri: photo.photoUri }} style={styles.fullImage} />
+                      {photo.caption ? (
+                        <Text style={styles.caption}>{photo.caption}</Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </ScrollView>
+              </>
+            )}
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
               <Text style={styles.closeText}>Close</Text>
             </TouchableOpacity>
@@ -78,11 +150,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    width: '90%',
+    width: SCREEN_WIDTH * 0.9,
+    maxHeight: '80%',
     backgroundColor: '#8EDFD3',
     borderRadius: 12,
-    padding: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   locationName: {
     fontSize: 18,
@@ -91,19 +165,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: 'center',
   },
+  carouselItem: {
+    width: SCREEN_WIDTH * 0.9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   fullImage: {
-    width: '100%',
-    aspectRatio: 3 / 4,
+    width: 250,
+    height: 330,
     borderRadius: 10,
+    marginBottom: 10,
   },
   caption: {
-    marginTop: 10,
     fontSize: 16,
     color: '#333',
     textAlign: 'center',
   },
   closeButton: {
-    marginTop: 15,
+    marginTop: 10,
     paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: '#007AFF',
@@ -111,6 +190,27 @@ const styles = StyleSheet.create({
   },
   closeText: {
     color: 'white',
+    fontWeight: 'bold',
+  },
+  markerWrapper: {
+    position: 'relative',
+  },
+  photoCountBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    zIndex: 2,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoCountText: {
+    color: 'white',
+    fontSize: 12,
     fontWeight: 'bold',
   },
 });
