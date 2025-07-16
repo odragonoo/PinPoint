@@ -1,11 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useNavigation } from 'expo-router';
-import { signOut, UserProfile } from 'firebase/auth';
+import { router } from 'expo-router';
+import { UserProfile } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Button, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { auth, firestore } from '../../lib/firebase';
 
 export default function ProfileScreen() {
@@ -35,23 +35,12 @@ export default function ProfileScreen() {
   fetchUserProfile();
   }, []);
 
-  const navigation = useNavigation();
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.replace('/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
 return (
   <View style={{ flex: 1 }}>
     {/* Settings Button */}
     <TouchableOpacity
       style={styles.settingsButton}
-      onPress={() => router.push({pathname: '//settings'})} //navigation.navigate('settings') <-- must match your route name
+      onPress={() => router.push('/settings')} //navigation.navigate('settings') <-- must match your route name
     >
       <Ionicons name="settings-outline" size={28} color="white" />
     </TouchableOpacity>
@@ -74,9 +63,6 @@ return (
       ) : (
         <ThemedText>Loading profile...</ThemedText>
       )}
-      <View style={{ marginTop: 30, alignItems: 'center' }}>
-        <Button title="Sign Out" onPress={handleSignOut} color="grey" />
-      </View>
     </ThemedView>
   </View>
 );

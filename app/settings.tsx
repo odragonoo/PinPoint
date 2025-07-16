@@ -1,21 +1,31 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Switch,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
-import { useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router, useNavigation } from 'expo-router';
+import { signOut } from 'firebase/auth';
+import React, { useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { auth } from '../lib/firebase';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const toggleSwitch = () => setNotificationsEnabled(prev => !prev);
+  const handleSignOut = async () => {
+      try {
+        await signOut(auth);
+        router.replace('/login');
+      } catch (error) {
+        console.error('Error signing out:', error);
+      }
+    };
 
   return (
     <LinearGradient
@@ -36,7 +46,7 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Account</Text>
         <SettingsItem icon="person-outline" text="Edit Profile" onPress={() => alert('Edit Profile tapped')}/>
         <SettingsItem icon="key-outline" text="Change Password" onPress={() => alert('Change password tapped')}/>
-        <SettingsItem icon="exit-outline" text="Logout" onPress={() => alert('Logout tapped')}/>
+        <SettingsItem icon="exit-outline" text="Logout" onPress={() => handleSignOut}/>
 
         {/* Section: General */}
         <Text style={[styles.sectionTitle, { marginTop: 30 }]}>General</Text>
