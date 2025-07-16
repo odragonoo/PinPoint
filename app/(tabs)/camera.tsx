@@ -1,20 +1,50 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Image, TextInput, ScrollView } from 'react-native';
-import { CameraView, useCameraPermissions, Camera } from 'expo-camera';
-import * as Location from 'expo-location';
+// camera.tsx (with gallery access, map pin picking, and geocoding fix)
+
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { storage } from '../../firebaseConfig'; // adjust path
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { usePhotoStore } from '../../lib/PhotoContext';
 
 export default function CameraTabScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
   const [locationName, setLocationName] = useState<string | null>(null);
+  const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isFromGallery, setIsFromGallery] = useState(false);
+
   const cameraRef = useRef<Camera>(null);
   const router = useRouter();
   const [facing, setFacing] = useState<'front' | 'back'>('back');
+  const { addPhoto } = usePhotoStore();
+  const params = useLocalSearchParams();
+
+  useEffect(() => {
+  if (params.lat && params.lng) {
+    const latitude = parseFloat(params.lat as string);
+    const longitude = parseFloat(params.lng as string);
+
+    setLocationCoords({ latitude, longitude });
+
+    const getLocationName = async () => {
+      try {
+        const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const place = geo[0];
+        const name = place?.name || place?.street || `${place.city}, ${place.region}`;
+        setLocationName(name);
+      } catch (err) {
+        console.warn('Reverse geocode failed:', err.message);
+        setLocationName(`Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+      }
+    };
+
+    getLocationName();
+  }
+}, [params.lat, params.lng]);
 
 
   useEffect(() => {
@@ -28,8 +58,9 @@ export default function CameraTabScreen() {
 
   const handleTakePicture = async () => {
     if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync({ mirrorImage: false });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, skipProcessing: true });
       setPhotoUri(photo.uri);
+      setIsFromGallery(false);
 
       try {
         const loc = await Location.getCurrentPositionAsync({});
@@ -45,84 +76,62 @@ export default function CameraTabScreen() {
     }
   };
 
-const handleSendPin = async () => {
-  if (!photoUri) {
-    alert('No photo captured');
-    return;
-  }
+  const openImagePicker = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      alert("Permission to access gallery is required!");
+      return;
+    }
 
-      console.log('Pin sent:', { photoUri, caption, locationName });
-    // Placeholder action - send this to backend, etc.
-    alert('Pin submitted!');
-    setPhotoUri(null);
-    setCaption('');
-    setLocationName(null);
-
-  const uploadImageToFirebase = async (uri: string) => {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-
-  const filename = `images/${Date.now()}.jpg`;
-  const storageRef = ref(storage, filename);
-
-  await uploadBytes(storageRef, blob);
-  const downloadURL = await getDownloadURL(storageRef);
-
-  try {
-    const downloadURL = await uploadImageToFirebase(photoUri!);
-    console.log('Image uploaded:', downloadURL);
-
-    // Optionally save to Firestore:
-    // await addDoc(collection(db, 'pins'), {
-    //   imageUrl: downloadURL,
-    //   caption,
-    //   locationName,
-    //   createdAt: new Date(),
-    // });
-
-    alert('Pin uploaded!');
-    setPhotoUri(null);
-    setCaption('');
-    setLocationName(null);
-  } catch (error) {
-    console.error('Upload failed:', error);
-    alert('Upload failed');
-  }
-
-
-  return downloadURL;
-};
-
-  try {
-    const loc = await Location.getCurrentPositionAsync({});
-    const { latitude, longitude } = loc.coords;
-
-    // Navigate to map.tsx with photo URI and location
-    router.push({
-      pathname: '/map',
-      params: {
-        photoUri,
-        latitude: latitude.toString(),
-        longitude: longitude.toString(),
-        caption,
-        locationName: locationName || '',
-      },
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
     });
 
-    // Clear UI state
-    setPhotoUri(null);
-    setCaption('');
-    setLocationName(null);
-  } catch (err) {
-    console.error('Failed to get location:', err);
-    alert('Location error');
-  }
-};
+    if (!result.canceled && result.assets?.length > 0) {
+      setPhotoUri(result.assets[0].uri);
+      setIsFromGallery(true);
+      setLocationName(null);
+      setLocationCoords(null);
+    }
+  };
 
+  const handleSendPin = async () => {
+    if (!photoUri) {
+      alert('No photo captured');
+      return;
+    }
 
-  if (!permission) {
-    return <View style={styles.container} />;
-  }
+    try {
+      const locToUse = locationCoords || (await Location.getCurrentPositionAsync()).coords;
+
+      const photoEntry = {
+        photoUri,
+        caption,
+        latitude: locToUse.latitude.toString(),
+        longitude: locToUse.longitude.toString(),
+        locationName: locationName || '',
+      };
+
+      addPhoto(photoEntry);
+
+      alert('Pin submitted!');
+      router.push('/map');
+
+      setTimeout(() => {
+        setPhotoUri(null);
+        setCaption('');
+        setLocationName(null);
+        setLocationCoords(null);
+        setIsFromGallery(false);
+      }, 500);
+    } catch (err) {
+      console.error('Failed to get location:', err);
+      alert('Location error');
+    }
+  };
+
+  if (!permission) return <View style={styles.container} />;
 
   if (!permission.granted) {
     return (
@@ -139,23 +148,30 @@ const handleSendPin = async () => {
     <View style={styles.container}>
       {photoUri ? (
         <ScrollView contentContainerStyle={styles.previewScreen}>
-          {/* Close Button */}
           <TouchableOpacity style={styles.closeButton} onPress={() => setPhotoUri(null)}>
             <Ionicons name="close" size={36} color="white" />
           </TouchableOpacity>
 
-          {/* Location Label */}
-          <View style={styles.locationLabel}>
-            <Ionicons name="location-sharp" size={20} color="black" />
-            <Text style={styles.locationText}>{locationName || 'Unknown Location'}</Text>
-          </View>
+          {isFromGallery ? (
+            <TouchableOpacity onPress={() => router.push('/map?mode=picker')} style={styles.locationLabel}>
+              <Ionicons name="location-sharp" size={20} color="black" />
+              <Text style={styles.locationText}>
+                {locationName || 'Unknown Location (Tap to set)'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.locationLabel}>
+              <Ionicons name="location-sharp" size={20} color="black" />
+              <Text style={styles.locationText}>
+                {locationName || 'Unknown Location'}
+              </Text>
+            </View>
+          )}
 
-          {/* Image Preview with background frame */}
           <View style={styles.imageCard}>
             <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
           </View>
 
-          {/* Caption Input */}
           <View style={styles.captionBox}>
             <TextInput
               value={caption}
@@ -166,15 +182,8 @@ const handleSendPin = async () => {
             />
           </View>
 
-          {/* Edit Tools */}
           <View style={styles.toolsRow}>
-            {[
-              // { label: 'Text', icon: 'text' },
-              { label: 'Sticker', icon: 'image-outline' },
-              { label: 'Overlay', icon: 'layers-outline' },
-              { label: 'Edit', icon: 'settings-outline' },
-              { label: 'Music', icon: 'musical-notes-outline' },
-            ].map((tool, index) => (
+            {[{ label: 'Sticker', icon: 'image-outline' }, { label: 'Overlay', icon: 'layers-outline' }, { label: 'Edit', icon: 'settings-outline' }, { label: 'Music', icon: 'musical-notes-outline' }].map((tool, index) => (
               <View style={styles.toolItem} key={index}>
                 <Ionicons name={tool.icon} size={22} color="white" />
                 <Text style={styles.toolLabel}>{tool.label}</Text>
@@ -182,165 +191,81 @@ const handleSendPin = async () => {
             ))}
           </View>
 
-          {/* Pin Button */}
           <TouchableOpacity style={styles.pinButton} onPress={handleSendPin}>
             <Text style={styles.pinButtonText}>Pin</Text>
             <Ionicons name="location" size={18} color="white" style={{ marginLeft: 5 }} />
           </TouchableOpacity>
         </ScrollView>
       ) : (
-<View style={styles.camera}>
-  <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
+        <View style={styles.camera}>
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
 
+          <View style={styles.topControls}>
+            <TouchableOpacity style={styles.controlButton} onPress={() => router.back()}>
+              <Ionicons name="close" size={32} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton} onPress={() => setFacing(prev => (prev === 'back' ? 'front' : 'back'))}>
+              <Ionicons name="camera-reverse" size={32} color="white" />
+            </TouchableOpacity>
+          </View>
 
-  {/* Top Buttons */}
-  <View style={styles.topControls}>
-    <TouchableOpacity style={styles.controlButton} onPress={() => router.back()}>
-      <Ionicons name="close" size={32} color="white" />
-    </TouchableOpacity>
-    <TouchableOpacity style={styles.controlButton} onPress={() => {
-      // toggle front/back camera
-      setFacing(prev => (prev === 'back' ? 'front' : 'back'));
-    }}>
-      <Ionicons name="camera-reverse" size={32} color="white" />
-    </TouchableOpacity>
-  </View>
+          <TouchableOpacity style={styles.galleryButton} onPress={openImagePicker}>
+            <Ionicons name="images-outline" size={32} color="white" />
+          </TouchableOpacity>
 
-  {/* Shutter Button */}
-  <View style={styles.shutterWrapper}>
-    <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
-      <View style={styles.shutterButtonInner} />
-    </TouchableOpacity>
-  </View>
-</View>
-
+          <View style={styles.shutterWrapper}>
+            <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
+              <View style={styles.shutterButtonInner} />
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-  camera: {
-    flex: 1,
-    position: 'relative',
-  },
-  shutterWrapper: {
-    position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
-  },
+  container: { flex: 1, backgroundColor: 'black' },
+  camera: { flex: 1, position: 'relative' },
+  shutterWrapper: { position: 'absolute', bottom: 40, alignSelf: 'center' },
   shutterButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(0,0,0,0.2)',
+    width: 70, height: 70, borderRadius: 35, backgroundColor: 'white',
+    justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: 'rgba(0,0,0,0.2)',
   },
   shutterButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#000',
+    width: 60, height: 60, borderRadius: 30, backgroundColor: 'white', borderWidth: 2, borderColor: '#000',
   },
-  previewScreen: {
-    alignItems: 'center',
-    backgroundColor: 'black',
-    paddingVertical: 40,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
-    zIndex: 2,
-  },
+  previewScreen: { alignItems: 'center', backgroundColor: 'black', paddingVertical: 40 },
+  closeButton: { position: 'absolute', top: 40, left: 20, zIndex: 2 },
   locationLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 10,
   },
-  locationText: {
-    color: 'black',
-    fontSize: 16,
-    marginLeft: 6,
-  },
+  locationText: { color: 'black', fontSize: 16, marginLeft: 6 },
   imageCard: {
-    width: '90%',
-    backgroundColor: '#8EDFD3',
-    borderRadius: 20,
-    padding: 10,
-    marginVertical: 12,
-    alignItems: 'center',
+    width: '90%', aspectRatio: 3 / 4, backgroundColor: '#8EDFD3',
+    borderRadius: 20, padding: 10, marginVertical: 12, alignItems: 'center', justifyContent: 'center',
   },
-  previewImage: {
-    width: '100%',
-    aspectRatio: 3 / 4,
-    borderRadius: 16,
-  },
-  captionBox: {
-    width: '90%',
-    backgroundColor: '#4C7D7E',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 20,
-  },
-  captionInput: {
-    color: 'white',
-    fontSize: 16,
-  },
-  toolsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginBottom: 30,
-  },
-  toolItem: {
-    alignItems: 'center',
-  },
-  toolLabel: {
-    color: 'white',
-    fontSize: 12,
-    marginTop: 4,
-  },
+  previewImage: { width: '100%', height: '100%', borderRadius: 16, resizeMode: 'contain' },
+  captionBox: { width: '90%', backgroundColor: '#4C7D7E', borderRadius: 16, padding: 12, marginBottom: 20 },
+  captionInput: { color: 'white', fontSize: 16 },
+  toolsRow: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginBottom: 30 },
+  toolItem: { alignItems: 'center' },
+  toolLabel: { color: 'white', fontSize: 12, marginTop: 4 },
   pinButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#00AEEF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 24,
+    position: 'absolute', bottom: 20, right: 20,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#00AEEF', paddingHorizontal: 20,
+    paddingVertical: 10, borderRadius: 24,
   },
-  pinButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  pinButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   topControls: {
-  position: 'absolute',
-  top: 40,
-  left: 0,
-  right: 0,
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  paddingHorizontal: 20,
-  zIndex: 10,
-},
-controlButton: {
-  padding: 10,
-},
+    position: 'absolute', top: 40, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, zIndex: 10,
+  },
+  controlButton: { padding: 10 },
+  galleryButton: {
+    position: 'absolute', bottom: 50, right: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 30, padding: 10, zIndex: 20,
+  },
 });
