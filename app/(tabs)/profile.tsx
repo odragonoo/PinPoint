@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useNavigation } from 'expo-router';
-import { signOut } from 'firebase/auth';
+import { signOut, UserProfile } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Button, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -21,7 +21,8 @@ export default function ProfileScreen() {
           const userSnapshot = await getDoc(userDocRef);
 
           if (userSnapshot.exists()) {
-            setProfile(userSnapshot.data());
+            const data = userSnapshot.data();
+            setProfile(data as UserProfile);
           } else {
             console.log('No user profile found!');
           }
