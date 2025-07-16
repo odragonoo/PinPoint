@@ -3,14 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useNavigation } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { auth } from '../lib/firebase';
 
 export default function SettingsScreen() {
@@ -44,7 +37,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Section: Account */}
         <Text style={styles.sectionTitle}>Account</Text>
-        <SettingsItem icon="person-outline" text="Edit Profile" onPress={() => alert('Edit Profile tapped')}/>
+        <SettingsItem icon="person-outline" text="Edit Profile" onPress={() => router.push('/editprofile')}/>
         <SettingsItem icon="key-outline" text="Change Password" onPress={() => alert('Change password tapped')}/>
         <SettingsItem icon="exit-outline" text="Logout" onPress={() => handleSignOut}/>
 
