@@ -1,6 +1,8 @@
 import { ThemedView } from '@/components/ThemedView';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -17,8 +19,49 @@ import { usePhotoStore } from '../../lib/PhotoContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
+const hardcodedPins = [
+  {
+    photoUri: require('../../assets/images/exPins/cat.png'),
+    caption: 'my catttt',
+    latitude: '33.7765',
+    longitude: '-84.3981',
+    locationName: 'Tech Square, Atlanta',
+  },
+
+  {
+    photoUri: require('../../assets/images/exPins/devilsElbow.png'),
+    caption: 'Chill Sunday',
+    latitude: '34.4435',
+    longitude: '-84.2096',
+    locationName: 'Devil\'s Elbow, Dawsonville',
+  },
+  {
+    photoUri: require('../../assets/images/exPins/bunBoHue.png'),
+    caption: 'This bun bo hue is fireeee check out this place',
+    latitude: '33.9572',
+    longitude: '-84.1363',
+    locationName: '3640 Satellite Blvd',
+  },
+  {
+    photoUri: require('../../assets/images/exPins/blackcatpt1.png'),
+    caption: 'he up',
+    latitude: '33.7557',
+    longitude: '-84.3911',
+    locationName: 'Underground Atlanta',
+  },{
+    photoUri: require('../../assets/images/exPins/blackcatpt2.png'),
+    caption: 'he down',
+    latitude: '33.7557',
+    longitude: '-84.3911',
+    locationName: 'Underground Atlanta',
+  },
+];
+
+
+
 export default function MapScreen() {
   const { photos } = usePhotoStore();
+  const allPhotos = [...photos, ...hardcodedPins];
   const mapRef = useRef<MapView>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
@@ -26,8 +69,36 @@ export default function MapScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const isPickerMode = params?.mode === 'picker';
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const groupedByLocation = photos.reduce((acc: any, photo: any) => {
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('Location permission not granted');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      setCurrentLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    })();
+  }, []);
+
+  useEffect(() => {
+  if (currentLocation && mapRef.current) {
+    mapRef.current.animateToRegion({
+      ...currentLocation,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 1000); // duration in ms
+  }
+}, [currentLocation]);
+
+
+  const groupedByLocation = allPhotos.reduce((acc: any, photo: any) => {
     const lat = parseFloat(photo.latitude);
     const lon = parseFloat(photo.longitude);
     const roundedLat = Math.round(lat * 1000) / 1000;
@@ -53,6 +124,7 @@ export default function MapScreen() {
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
+        showsUserLocation={true}
         onPress={(e) => {
           if (isPickerMode) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
@@ -84,7 +156,9 @@ export default function MapScreen() {
                   }}
                 >
                   <View style={styles.markerWrapper}>
-                    <Image source={{ uri: group[0].photoUri }} style={styles.markerImage} />
+                    <Image source={ typeof group[0].photoUri === 'string' ? 
+                      { uri: group[0].photoUri } : group[0].photoUri} 
+                      style={styles.markerImage}/>
                     {group.length > 1 && (
                       <View style={styles.photoCountBadge}>
                         <Text style={styles.photoCountText}>{group.length}</Text>
@@ -99,34 +173,49 @@ export default function MapScreen() {
 
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalBackground}>
-          <View style={styles.modalContent}>
-            {selectedPhotos.length > 0 && (
-              <>
-                <Text style={styles.locationName}>{selectedPhotos[0].locationName}</Text>
-                <ScrollView
-                  horizontal
-                  pagingEnabled
-                  snapToAlignment="center"
-                  decelerationRate="fast"
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ alignItems: 'center' }}
-                  style={{ width: SCREEN_WIDTH * 0.9 }}
-                >
-                  {selectedPhotos.map((photo, idx) => (
-                    <View key={idx} style={styles.carouselItem}>
-                      <Image source={{ uri: photo.photoUri }} style={styles.fullImage} />
-                      {photo.caption ? (
-                        <Text style={styles.caption}>{photo.caption}</Text>
-                      ) : null}
-                    </View>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-              <Text style={styles.closeText}>Close</Text>
-            </TouchableOpacity>
+          <LinearGradient
+  colors={['#0D47A1', '#1976D2']}
+  style={styles.modalContent}
+>
+  {selectedPhotos.length > 0 && (
+    <>
+      <Text style={styles.locationName}>
+        {selectedPhotos[0].locationName}
+      </Text>
+
+      <ScrollView
+        horizontal
+        pagingEnabled
+        snapToAlignment="center"
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ alignItems: 'center' }}
+        style={{ width: SCREEN_WIDTH * 0.9 }}
+      >
+        {selectedPhotos.map((photo, idx) => (
+          <View key={idx} style={styles.carouselItem}>
+            <Image
+  source={
+    typeof photo.photoUri === 'string'
+      ? { uri: photo.photoUri }
+      : photo.photoUri
+  }
+  style={styles.fullImage}
+/>
+
+            {photo.caption ? (
+              <Text style={styles.caption}>{photo.caption}</Text>
+            ) : null}
           </View>
+        ))}
+      </ScrollView>
+    </>
+  )}
+
+  <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+    <Text style={styles.closeText}>Close</Text>
+  </TouchableOpacity>
+</LinearGradient>
         </View>
       </Modal>
     </ThemedView>
@@ -161,7 +250,7 @@ const styles = StyleSheet.create({
   locationName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#444',
+    color: 'white',
     marginBottom: 10,
     textAlign: 'center',
   },
@@ -178,7 +267,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     fontSize: 16,
-    color: '#333',
+    color: 'white',
     textAlign: 'center',
   },
   closeButton: {

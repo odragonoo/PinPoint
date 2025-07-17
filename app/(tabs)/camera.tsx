@@ -3,11 +3,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { usePhotoStore } from '../../lib/PhotoContext';
+
 
 export default function CameraTabScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -168,9 +170,13 @@ export default function CameraTabScreen() {
             </View>
           )}
 
-          <View style={styles.imageCard}>
-            <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
-          </View>
+          <LinearGradient
+  colors={['#0D47A1', '#1976D2']}
+  style={styles.imageCard}
+>
+  <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
+</LinearGradient>
+
 
           <View style={styles.captionBox}>
             <TextInput
@@ -183,13 +189,19 @@ export default function CameraTabScreen() {
           </View>
 
           <View style={styles.toolsRow}>
-            {[{ label: 'Sticker', icon: 'image-outline' }, { label: 'Overlay', icon: 'layers-outline' }, { label: 'Edit', icon: 'settings-outline' }, { label: 'Music', icon: 'musical-notes-outline' }].map((tool, index) => (
-              <View style={styles.toolItem} key={index}>
-                <Ionicons name={tool.icon} size={22} color="white" />
-                <Text style={styles.toolLabel}>{tool.label}</Text>
-              </View>
-            ))}
-          </View>
+  {[
+    { label: 'Sticker', icon: 'images-outline' },
+    { label: 'Overlay', icon: 'layers-outline' },
+    { label: 'Edit', icon: 'settings-outline' },
+    { label: 'Music', icon: 'musical-notes-outline' },
+  ].map((tool, index) => (
+    <TouchableOpacity style={styles.toolItem} key={index} onPress={() => alert(`${tool.label} pressed`)}>
+      <Ionicons name={tool.icon} size={24} color="white" />
+      <Text style={styles.toolLabel}>{tool.label}</Text>
+    </TouchableOpacity>
+  ))}
+</View>
+
 
           <TouchableOpacity style={styles.pinButton} onPress={handleSendPin}>
             <Text style={styles.pinButtonText}>Pin</Text>
@@ -247,13 +259,29 @@ const styles = StyleSheet.create({
     borderRadius: 20, padding: 10, marginVertical: 12, alignItems: 'center', justifyContent: 'center',
   },
   previewImage: { width: '100%', height: '100%', borderRadius: 16, resizeMode: 'contain' },
-  captionBox: { width: '90%', backgroundColor: '#4C7D7E', borderRadius: 16, padding: 12, marginBottom: 20 },
+  captionBox: { width: '90%', backgroundColor: '#3e4444ff', borderRadius: 16, padding: 12, marginBottom: 20 },
   captionInput: { color: 'white', fontSize: 16 },
-  toolsRow: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginBottom: 30 },
-  toolItem: { alignItems: 'center' },
-  toolLabel: { color: 'white', fontSize: 12, marginTop: 4 },
+  toolsRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-around',
+  width: '100%',
+  paddingHorizontal: 10,
+  marginBottom: 30,
+},
+
+toolItem: {
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+toolLabel: {
+  color: 'white',
+  fontSize: 12,
+  marginTop: 4,
+},
+
   pinButton: {
-    position: 'absolute', bottom: 20, right: 20,
+    position: 'absolute', bottom: 0, right: 20,
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#00AEEF', paddingHorizontal: 20,
     paddingVertical: 10, borderRadius: 24,
