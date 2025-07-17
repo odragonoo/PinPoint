@@ -45,10 +45,25 @@ interface UserProfile {
 
 // --- Helper function to get user profiles from IDs ---
 const fetchUserProfiles = async (userIds: string[]): Promise<UserProfile[]> => {
-  if (userIds.length === 0) return [];
+  if (userIds.length === 0) {
+    console.log("fetchUserProfiles: No user IDs provided, returning empty array.");
+    return [];
+  }
+  console.log("fetchUserProfiles: Fetching profiles for UIDs:", userIds);
   const profilePromises = userIds.map(id => getDoc(doc(db, 'users', id)));
   const profileSnapshots = await Promise.all(profilePromises);
-  return profileSnapshots.map(snap => ({ id: snap.id, ...snap.data() } as UserProfile));
+  const profiles = profileSnapshots.map(snap => {
+    if (snap.exists()) {
+      const data = snap.data();
+      console.log(`fetchUserProfiles: Found profile for ${snap.id}:`, data);
+      return { id: snap.id, ...data } as UserProfile;
+    } else {
+      console.warn(`fetchUserProfiles: Document for UID ${snap.id} does not exist.`);
+      return null; // Return null for non-existent documents
+    }
+  }).filter(Boolean) as UserProfile[]; // Filter out any nulls
+  console.log("fetchUserProfiles: Fetched profiles:", profiles);
+  return profiles;
 };
 
 
@@ -91,24 +106,54 @@ export default function ChatScreen() {
   const router = useRouter();
   const currentUser = auth.currentUser;
 
-  // --- Fetch friends and requests from Firebase ---
   useEffect(() => {
-    if (!currentUser) return;
+    console.log("ChatScreen mounted. Current user:", currentUser?.uid);
+    if (!currentUser) {
+      console.log("No current user, setting loading to false.");
+      setLoading(false);
+      return;
+    }
 
     const userDocRef = doc(db, 'users', currentUser.uid);
+    console.log("Listening to user document:", currentUser.uid);
 
     const unsubscribe = onSnapshot(userDocRef, async (snapshot) => {
+      if (!snapshot.exists()) {
+        console.warn(`User document for ${currentUser.uid} does not exist!`);
+        setFriends([]);
+        setRequests([]);
+        return;
+      }
       const userData = snapshot.data();
+      console.log("User data received:", userData);
+
       if (userData) {
-        // Fetch full profiles for friends and requests
-        const friendProfiles = await fetchUserProfiles(userData.friends || []);
-        const requestProfiles = await fetchUserProfiles(userData.friendRequests || []);
+        const rawFriendRequests = userData.friendRequests || [];
+        const rawFriends = userData.friends || [];
+        console.log("Raw friend requests from DB:", rawFriendRequests);
+        console.log("Raw friends from DB:", rawFriends);
+
+        const friendProfiles = await fetchUserProfiles(rawFriends);
+        const requestProfiles = await fetchUserProfiles(rawFriendRequests);
+        
         setFriends(friendProfiles);
         setRequests(requestProfiles);
+        console.log("Updated friends state:", friendProfiles);
+        console.log("Updated requests state:", requestProfiles);
+      } else {
+        console.log("User data is empty.");
+        setFriends([]);
+        setRequests([]);
       }
+    }, (error) => {
+        console.error("Error fetching user data:", error);
+        setLoading(false); // Stop loading if there's an error
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log("Unsubscribing from user document listener.");
+      unsubscribe();
+    };
   }, [currentUser]);
 
 
@@ -125,50 +170,77 @@ export default function ChatScreen() {
         where('participants', 'array-contains', currentUser.uid),
         orderBy('timestamp', 'desc')
     );
+    console.log("Listening to chats for user:", currentUser.uid);
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const convos: Conversation[] = [];
       querySnapshot.forEach((doc) => {
-        convos.push({ id: doc.id, ...doc.data() } as Conversation);
+        const data = doc.data();
+        convos.push({ id: doc.id, ...data } as Conversation);
       });
       setConversations(convos);
       setLoading(false);
+      console.log("Conversations loaded:", convos.length);
+    }, (error) => {
+        console.error("Error fetching chats:", error);
+        setLoading(false); // Stop loading if there's an error
     });
-    return () => unsubscribe();
+    return () => {
+      console.log("Unsubscribing from chats listener.");
+      unsubscribe();
+    };
   }, [currentUser]);
 
   // --- Friend Management Functions ---
   const handleAcceptRequest = async (requesterId: string) => {
     if (!currentUser) return;
+    console.log("Accepting request from:", requesterId);
     const currentUserRef = doc(db, 'users', currentUser.uid);
     const requesterRef = doc(db, 'users', requesterId);
 
-    // Add each other as friends and remove the request
-    await updateDoc(currentUserRef, {
-      friends: arrayUnion(requesterId),
-      friendRequests: arrayRemove(requesterId),
-    });
-    await updateDoc(requesterRef, {
-      friends: arrayUnion(currentUser.uid),
-    });
+    try {
+        // Add each other as friends and remove the request
+        await updateDoc(currentUserRef, {
+            friends: arrayUnion(requesterId),
+            friendRequests: arrayRemove(requesterId),
+        });
+        await updateDoc(requesterRef, {
+            friends: arrayUnion(currentUser.uid),
+        });
+        console.log(`Accepted request from ${requesterId} and added to friends.`);
+    } catch (error) {
+        console.error("Error accepting request:", error);
+    }
   };
 
   const handleDeclineRequest = async (requesterId: string) => {
     if (!currentUser) return;
+    console.log("Declining request from:", requesterId);
     const currentUserRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(currentUserRef, {
-      friendRequests: arrayRemove(requesterId),
-    });
+    try {
+        await updateDoc(currentUserRef, {
+            friendRequests: arrayRemove(requesterId),
+        });
+        console.log(`Declined request from ${requesterId}.`);
+    } catch (error) {
+        console.error("Error declining request:", error);
+    }
   };
 
   const handleRemoveFriend = async (friendId: string) => {
     if (!currentUser) return;
+    console.log("Removing friend:", friendId);
     const currentUserRef = doc(db, 'users', currentUser.uid);
     const friendRef = doc(db, 'users', friendId);
 
-    // Remove each other from friends lists
-    await updateDoc(currentUserRef, { friends: arrayRemove(friendId) });
-    await updateDoc(friendRef, { friends: arrayRemove(currentUser.uid) });
+    try {
+        // Remove each other from friends lists
+        await updateDoc(currentUserRef, { friends: arrayRemove(friendId) });
+        await updateDoc(friendRef, { friends: arrayRemove(currentUser.uid) });
+        console.log(`Removed friend ${friendId}.`);
+    } catch (error) {
+        console.error("Error removing friend:", error);
+    }
   };
 
 
@@ -229,20 +301,30 @@ export default function ChatScreen() {
             </View>
 
             <ThemedText type="subtitle" style={styles.sectionTitle}>Friend Requests ({requests.length})</ThemedText>
-            <FlatList
-              data={requests}
-              renderItem={({ item }) => <RequestItem user={item} onAccept={handleAcceptRequest} onDecline={handleDeclineRequest} />}
-              keyExtractor={(item) => item.id}
-              style={styles.list}
-            />
+            {requests.length === 0 ? (
+                <ThemedText style={styles.noItemsText}>No pending friend requests.</ThemedText>
+            ) : (
+                <FlatList
+                    data={requests}
+                    renderItem={({ item }) => <RequestItem user={item} onAccept={handleAcceptRequest} onDecline={handleDeclineRequest} />}
+                    keyExtractor={(item) => item.id}
+                    style={styles.list}
+                    scrollEnabled={false} // Prevent inner FlatList from scrolling if modal itself scrolls
+                />
+            )}
 
             <ThemedText type="subtitle" style={styles.sectionTitle}>My Friends ({friends.length})</ThemedText>
-            <FlatList
-              data={friends}
-              renderItem={({ item }) => <FriendItem user={item} onRemove={handleRemoveFriend} />}
-              keyExtractor={(item) => item.id}
-              style={styles.list}
-            />
+            {friends.length === 0 ? (
+                <ThemedText style={styles.noItemsText}>No friends added yet.</ThemedText>
+            ) : (
+                <FlatList
+                    data={friends}
+                    renderItem={({ item }) => <FriendItem user={item} onRemove={handleRemoveFriend} />}
+                    keyExtractor={(item) => item.id}
+                    style={styles.list}
+                    scrollEnabled={false} // Prevent inner FlatList from scrolling
+                />
+            )}
           </View>
         </View>
       </Modal>
@@ -274,4 +356,5 @@ const styles = StyleSheet.create({
   itemName: { flex: 1, fontSize: 18 },
   itemActions: { flexDirection: 'row' },
   iconButton: { padding: 8, borderRadius: 20 },
+  noItemsText: { textAlign: 'center', marginTop: 10, marginBottom: 20, color: '#8e8e93' }, // Added style
 });
