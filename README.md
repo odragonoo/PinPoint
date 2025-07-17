@@ -54,8 +54,16 @@ Join our community of developers creating universal apps.
 
 
 
-## Documentation of the chat:
-- In firebase the initial chats collection is more of a folder of all chats ever done
-- within chats collection there is add collection and there thats the individual chat based on the people who are in it
-- Within that there is another collection that is the individual texts.
-- The fields are obviously the things that need to make up each thing so yea.
+## Documentation of the chat: (Inspired by instagram Dms)
+- Chat function has access to users/inchat and chat(the global file)
+- Global file "Chat" has the chats of every account and they are ided
+- inChat has the ids of the "cache" or meta data of the chats the user associated.
+   + Basically an array of cache and they are ided
+   + That incldues:
+   1. name of person
+   2. time stamp of last message
+   3. last message itself
+   4. Picture of the person's profile
+   5. chatID (This makes it so when you press the chat it fetches the whole intire chat)
+
+- Reason: We didn't want all the messages to be fetched when you press the chat tab. Doing so will cause lag or lower frames. Basically we are loading assets in the splash screen (the page where it shows the icon). Remember the reason the chat tab is the only option is because when you go through the chat tab it should have an image of the people you dm and the photos of the group chats. We also want to fetch the last message that was sent in the dm/gc. This also allows us to sort it based on the time of message. So the top dm/gc is the one that got the most recent text.
