@@ -1,20 +1,21 @@
 import { useRouter } from "expo-router";
 import {
-    createUserWithEmailAndPassword,
-    updateProfile,
+  createUserWithEmailAndPassword,
+  updateProfile,
 } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
-    Alert,
-    Button,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Button,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { auth } from "../lib/firebase"; // your existing Firebase setup  [oai_citation:0‡GitHub](https://raw.githubusercontent.com/pinpointvoodoo/PinPoint/main/lib/firebase.ts)
+import { auth, db } from "../lib/firebase"; // your existing Firebase setup  [oai_citation:0‡GitHub](https://raw.githubusercontent.com/pinpointvoodoo/PinPoint/main/lib/firebase.ts)
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -38,6 +39,17 @@ const SignUp: React.FC = () => {
       );
       // store the username
       await updateProfile(userCred.user, { displayName: username });
+
+      // Create Firestore user doc with all required fields
+      await setDoc(doc(db, "users", userCred.user.uid), {
+        avatar: null,
+        bio: null,
+        email: email,
+        friendRequests: [],
+        friends: [],
+        name: username,
+      });
+
       setError("");
       // go into the app
       router.replace("/(tabs)");
