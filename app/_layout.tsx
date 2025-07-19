@@ -58,7 +58,11 @@ function RootLayoutInner() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <PhotoProvider>
-        <Stack>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
           {!currentUser ? (
             <>
               {/* Unauthenticated screens */}
