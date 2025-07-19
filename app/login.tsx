@@ -39,6 +39,13 @@ const Login: React.FC = () => {
       />
       <Button title="Login" onPress={handleLogin} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {/* Navigate to Sign Up */}
+      <View style={{ marginTop: 20 }}>
+        <Button
+          title="Don't have an account? Sign Up"
+          onPress={() => router.push('/signup')}
+        />
+      </View>
     </View>
   );
 };
