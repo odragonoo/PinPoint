@@ -8,17 +8,39 @@ import React, { useState } from "react";
 import {
   Alert,
   Button,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { auth, db } from "../lib/firebase"; // your existing Firebase setup  [oai_citation:0‡GitHub](https://raw.githubusercontent.com/pinpointvoodoo/PinPoint/main/lib/firebase.ts)
+import { auth, db } from "../lib/firebase";
+
+const { width } = Dimensions.get("window");
+
+const onboardingSlides = [
+  {
+    title: "Live Location Sharing",
+    description: "See your friends on a real-time map — just like Life360 and Snap Map.",
+  },
+  {
+    title: "Social Meetups",
+    description: "Chat, share status updates, and plan spontaneous meetups.",
+  },
+  {
+    title: "Friend Requests & Privacy",
+    description: "Control who sees you. Accept or reject friend requests anytime.",
+  },
+];
 
 const SignUp: React.FC = () => {
   const router = useRouter();
+
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -31,33 +53,47 @@ const SignUp: React.FC = () => {
     }
 
     try {
-      // create the user
-      const userCred = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      // store the username
+      const userCred = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCred.user, { displayName: username });
 
-      // Create Firestore user doc with all required fields
       await setDoc(doc(db, "users", userCred.user.uid), {
         avatar: null,
         bio: null,
-        email: email,
+        email,
         friendRequests: [],
         friends: [],
         name: username,
       });
 
       setError("");
-      // go into the app
       router.replace("/(tabs)");
     } catch (err: any) {
       setError(err.message);
       Alert.alert("Sign Up Error", err.message);
     }
   };
+
+  if (!onboardingComplete) {
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+        >
+          {onboardingSlides.map((slide, index) => (
+            <View style={styles.slide} key={index}>
+              <Text style={styles.title}>{slide.title}</Text>
+              <Text style={styles.description}>{slide.description}</Text>
+            </View>
+          ))}
+        </ScrollView>
+        <View style={{ padding: 20 }}>
+          <Button title="Get Started" onPress={() => setOnboardingComplete(true)} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -92,7 +128,6 @@ const SignUp: React.FC = () => {
       />
 
       <Button title="Sign Up" onPress={handleSignUp} />
-
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={{ marginTop: 20 }}>
@@ -109,8 +144,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    padding: 24,
     backgroundColor: "#fff",
+  },
+  slide: {
+    width: width,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "bold",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  description: {
+    fontSize: 16,
+    color: "#555",
+    textAlign: "center",
   },
   heading: {
     fontSize: 24,
@@ -123,6 +174,7 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 6,
     padding: 12,
+    marginHorizontal: 24,
     marginBottom: 16,
   },
   error: {
