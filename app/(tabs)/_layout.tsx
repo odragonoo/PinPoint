@@ -26,17 +26,11 @@ export default function TabLayout() {
           default: {},
         }),
       }}>
+     
       <Tabs.Screen
         name="index"
         options={{
-          title: 'PinPoint',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="play.rectangle.on.rectangle" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Explore',
+          title: 'PinPoints',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="map" color={color} />,
         }}
       />
