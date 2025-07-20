@@ -19,20 +19,23 @@ import {
 } from "react-native";
 import { auth, db } from "../lib/firebase";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 const onboardingSlides = [
   {
-    title: "Live Location Sharing",
-    description: "See your friends on a real-time map — just like Life360 and Snap Map.",
+    emoji: "🗺️",
+    title: "Post on the Map",
+    description: "Drop updates, photos, or check-ins directly on a map — not a swipe feed.",
   },
   {
-    title: "Social Meetups",
-    description: "Chat, share status updates, and plan spontaneous meetups.",
+    emoji: "📍",
+    title: "See What’s Around You",
+    description: "View posts from friends and locals near you in real-time.",
   },
   {
-    title: "Friend Requests & Privacy",
-    description: "Control who sees you. Accept or reject friend requests anytime.",
+    emoji: "👥",
+    title: "Live Friends + Location",
+    description: "See friends live on the map. Like Snap Map meets social posting.",
   },
 ];
 
@@ -40,7 +43,6 @@ const SignUp: React.FC = () => {
   const router = useRouter();
 
   const [onboardingComplete, setOnboardingComplete] = useState(false);
-
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -83,6 +85,7 @@ const SignUp: React.FC = () => {
         >
           {onboardingSlides.map((slide, index) => (
             <View style={styles.slide} key={index}>
+              <Text style={styles.emoji}>{slide.emoji}</Text>
               <Text style={styles.title}>{slide.title}</Text>
               <Text style={styles.description}>{slide.description}</Text>
             </View>
@@ -143,17 +146,21 @@ const SignUp: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
     backgroundColor: "#fff",
+    justifyContent: "center",
   },
   slide: {
-    width: width,
+    width,
     alignItems: "center",
     justifyContent: "center",
-    padding: 32,
+    padding: 24,
+  },
+  emoji: {
+    fontSize: 72,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "bold",
     marginBottom: 12,
     textAlign: "center",
@@ -162,6 +169,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#555",
     textAlign: "center",
+    paddingHorizontal: 20,
   },
   heading: {
     fontSize: 24,
