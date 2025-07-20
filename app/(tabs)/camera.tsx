@@ -222,7 +222,7 @@ await addDoc(collection(db, 'photos'), {
 
     addPhoto(photoEntry); // local state
     alert('Pin submitted!');
-    router.push('/map');
+    router.push('/');
 
     setTimeout(() => {
       setPhotoUri(null);
