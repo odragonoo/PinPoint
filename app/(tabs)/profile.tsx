@@ -2,7 +2,6 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { UserProfile } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,10 +11,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { auth, firestore } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
+
+interface FirestoreUserProfile {
+  avatar: string | null;
+  bio: string | null;
+  email: string | null;
+  friendRequests: string[];
+  friends: string[];
+  name: string | null;
+}
 
 export default function ProfileScreen() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<FirestoreUserProfile | null>(null);
 
   // ✅ Placeholder images from local assets
   const placeholderPins = [
@@ -35,12 +43,12 @@ export default function ProfileScreen() {
 
       if (currentUser) {
         try {
-          const userDocRef = doc(firestore, 'users', currentUser.uid);
+          const userDocRef = doc(db, 'users', currentUser.uid);
           const userSnapshot = await getDoc(userDocRef);
 
           if (userSnapshot.exists()) {
             const data = userSnapshot.data();
-            setProfile(data as UserProfile);
+            setProfile(data as FirestoreUserProfile);
           } else {
             console.log('No user profile found!');
           }
