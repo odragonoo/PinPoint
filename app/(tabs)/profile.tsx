@@ -1,9 +1,10 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -12,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
+
+
 
 interface FirestoreUserProfile {
   avatar: string | null;
@@ -37,7 +40,8 @@ export default function ProfileScreen() {
   const [pinCount, setPinCount] = useState(placeholderPins.length);
   const [followerCount, setFollowerCount] = useState(9); // Hardcoded for now
 
-  useEffect(() => {
+  useFocusEffect(
+  useCallback(() => {
     const fetchUserProfile = async () => {
       const currentUser = auth.currentUser;
 
@@ -59,7 +63,9 @@ export default function ProfileScreen() {
     };
 
     fetchUserProfile();
-  }, []);
+  }, [])
+);
+
 
   return (
     <View style={{ flex: 1 }}>
