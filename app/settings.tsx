@@ -49,7 +49,7 @@ export default function SettingsScreen() {
           value={notificationsEnabled}
           onValueChange={toggleSwitch}
         />
-        <SettingsItem icon="bug-outline" text="Report a Bug" onPress={() => alert('Report Bug tapped')}/>
+        <SettingsItem icon="bug-outline" text="Report a Bug" onPress={() => router.push('/bugreport')}/>
       </ScrollView>
     </LinearGradient>
   );
