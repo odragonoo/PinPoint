@@ -1,11 +1,11 @@
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, getDocs } from 'firebase/firestore';
-import { getDownloadURL, ref } from 'firebase/storage';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -86,40 +86,63 @@ export default function MapScreen() {
   const [firebasePhotos, setFirebasePhotos] = useState<any[]>([]);
 
   const allPhotos = [...photos, ...hardcodedPins, ...firebasePhotos];
-  useEffect(() => {
-  const fetchPhotos = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'photos'));
+  useFocusEffect(
+  useCallback(() => {
+    const fetchPhotos = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'photos'));
 
-      const photosData = await Promise.all(
-        querySnapshot.docs.map(async (doc) => {
-          const data = doc.data();
+        const photosData = await Promise.all(
+          querySnapshot.docs.map(async (doc) => {
+            const data = doc.data();
+            let photoUrl = data.imageUrl;
+            return {
+              id: doc.id,
+              ...data,
+              photoUri: photoUrl,
+            };
+          })
+        );
 
-          let photoUrl = data.imageUrl; // <-- Use imageUrl field here
-          if (photoUrl && !photoUrl.startsWith('http')) {
-            try {
-              photoUrl = await getDownloadURL(ref(storage, photoUrl));
-            } catch (err) {
-              console.error('Error getting download URL:', err);
-            }
-          }
+        setFirebasePhotos(photosData);
+      } catch (error) {
+        console.error('Error fetching photos:', error);
+      }
+    };
 
-          return {
-            id: doc.id,
-            ...data,
-            photoUri: photoUrl,  // keep photoUri as the normalized URL field you use in your UI
-          };
-        })
-      );
+    const fetchLocation = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
 
-      setFirebasePhotos(photosData);
-    } catch (error) {
-      console.error('Error fetching photos:', error);
-    }
-  };
+      const location = await Location.getCurrentPositionAsync({});
+      const coords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
 
-  fetchPhotos();
-}, []);
+      setCurrentLocation(coords);
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(
+          {
+            ...coords,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          },
+          500
+        );
+      }
+    };
+
+    fetchPhotos();
+    fetchLocation();
+
+    // Optional cleanup if needed
+    return () => {
+      setSuggestions([]);
+    };
+  }, [])
+);
+
 
 
 
@@ -387,20 +410,41 @@ export default function MapScreen() {
               justifyContent: 'center',
             }}
           >
-            <View style={styles.modalItem}>
-              <Text style={styles.modalUsernameTop}>{photo.username || 'Unknown user'}</Text>
-<Text style={styles.modalLocationTop}>{photo.locationName}</Text>
+            <View style={{ width: SCREEN_WIDTH * 0.9, alignItems: 'center' }}>
+  <View style={styles.modalItem}>
 
-              <Image
-                source={
-                  typeof photo.photoUri === 'string'
-                    ? { uri: photo.photoUri }
-                    : photo.photoUri
-                }
-                style={styles.modalImage}
-              />
-              <Text style={styles.modalCaptionBottom}>{photo.caption}</Text>
-            </View>
+    {/* Photo */}
+    <Image
+      source={typeof photo.photoUri === 'string' ? { uri: photo.photoUri } : photo.photoUri}
+      style={styles.modalImage}
+      resizeMode="cover"
+    />
+
+    {/* Caption */}
+    {photo.caption ? (
+      <Text style={styles.modalCaptionBottom}>{photo.caption}</Text>
+    ) : null}
+  </View>
+
+  {/* ABSOLUTE Username and Profile Picture in top-left */}
+  <View style={styles.modalTopLeftUser}>
+  {photo.profilePicture ? (
+    <Image source={{ uri: photo.profilePicture }} style={styles.profilePic} />
+  ) : (
+    <Ionicons name="person-circle-outline" size={36} color="white" />
+  )}
+  <View>
+    <Text style={styles.usernameText}>{photo.username || 'Unknown user'}</Text>
+    {photo.locationName ? (
+      <Text style={styles.modalLocationTop}>{photo.locationName}</Text>
+    ) : null}
+  </View>
+</View>
+
+</View>
+
+
+
           </View>
         ))}
       </ScrollView>
@@ -529,16 +573,19 @@ const styles = StyleSheet.create({
 
 
   modalItem: {
+    padding: 20,
+    paddingBottom: 40,
     width: SCREEN_WIDTH * 0.9,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 30,
+    borderRadius: 20,
   },
 
   modalLocationTop: {
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 6,
     textAlign: 'center',
     color: 'white',
   },
@@ -547,15 +594,16 @@ const styles = StyleSheet.create({
   width: SCREEN_WIDTH * 0.8,
   height: SCREEN_WIDTH * 1.2,
   borderRadius: 12,
+  marginBottom: 10,
   resizeMode: 'cover',
 },
 
 
   modalCaptionBottom: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
     color: 'white',
-    marginTop: 5,
+    marginTop: 4,
   },
 
   modalCloseButtonBottom: {
@@ -578,6 +626,43 @@ modalUsernameTop: {
   marginBottom: 4,
   textAlign: 'center',
   color: 'white',
+},
+userHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 10,
+},
+
+profilePic: {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  marginRight: 10,
+  borderWidth: 1,
+  borderColor: 'white',
+},
+
+usernameText: {
+  color: 'white',
+  fontSize: 16,
+  fontWeight: 'bold',
+},
+modalHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 10,
+},
+modalTopLeftUser: {
+  position: 'absolute',
+  top: 20,
+  left: 20,
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(0,0,0,0.4)',
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 20,
+  zIndex: 999,
 },
 
 });

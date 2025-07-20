@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { usePhotoStore } from '../../lib/PhotoContext';
@@ -26,6 +26,30 @@ export default function CameraTabScreen() {
   const [facing, setFacing] = useState<'front' | 'back'>('back');
   const { addPhoto } = usePhotoStore();
   const params = useLocalSearchParams();
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+
+useEffect(() => {
+  const fetchUserProfilePicture = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userSnapshot = await getDoc(userDocRef);
+
+      if (userSnapshot.exists()) {
+        const userData = userSnapshot.data();
+        setProfilePicture(userData.avatar || null);
+      } else {
+        console.warn('User document not found');
+      }
+    } catch (error) {
+      console.error('Error fetching profile picture:', error);
+    }
+  };
+
+  fetchUserProfilePicture();
+}, []);
 
 
 async function uploadImageToCloudinary(uri: string) {
@@ -82,7 +106,7 @@ async function savePhotoEntryToFirestore(
     latitude,
     longitude,
     userId: currentUser.uid,
-    username: currentUser.displayName || 'Anonymous',
+    username: currentUser.displayName || currentUser.email || 'Anonymous',
     createdAt: new Date(),
   };
 
@@ -177,6 +201,7 @@ async function savePhotoEntryToFirestore(
   console.log('Logged in user ID:', currentUser.uid);
   console.log('Logged in username:', currentUser.displayName);
   console.log('Logged in user email:', currentUser.email);
+  console.log('pfp picture:', currentUser.avatar);
 } else {
   console.log('No user is logged in');
 }
@@ -217,10 +242,11 @@ await addDoc(collection(db, 'photos'), {
   userId: currentUser.uid,
   username: currentUser.displayName || 'null',
   createdAt: new Date(),
+  profilePicture: profilePicture || ''
 });
 
 
-    addPhoto(photoEntry); // local state
+    // addPhoto(photoEntry); // local state
     alert('Pin submitted!');
     router.push('/');
 
@@ -261,7 +287,7 @@ await addDoc(collection(db, 'photos'), {
           </TouchableOpacity>
 
           {isFromGallery ? (
-            <TouchableOpacity onPress={() => router.push('/map?mode=picker')} style={styles.locationLabel}>
+            <TouchableOpacity onPress={() => router.push('/?mode=picker')} style={styles.locationLabel}>
               <Ionicons name="location-sharp" size={20} color="black" />
               <Text style={styles.locationText}>
                 {locationName || 'Unknown Location (Tap to set)'}
@@ -275,6 +301,18 @@ await addDoc(collection(db, 'photos'), {
               </Text>
             </View>
           )}
+          {profilePicture && (
+  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+    <Image
+      source={{ uri: profilePicture }}
+      style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+    />
+    <Text style={{ color: 'white', fontSize: 16 }}>
+      {auth.currentUser?.displayName || auth.currentUser?.email || 'Anonymous'}
+    </Text>
+  </View>
+)}
+
 
           <LinearGradient
   colors={['#0D47A1', '#1976D2']}
