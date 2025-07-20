@@ -1,11 +1,13 @@
 // camera.tsx (with gallery access, map pin picking, and geocoding fix)
 
+import { auth, db } from '@/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { addDoc, collection } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { usePhotoStore } from '../../lib/PhotoContext';
@@ -24,6 +26,76 @@ export default function CameraTabScreen() {
   const [facing, setFacing] = useState<'front' | 'back'>('back');
   const { addPhoto } = usePhotoStore();
   const params = useLocalSearchParams();
+
+
+async function uploadImageToCloudinary(uri: string) {
+  const data = new FormData();
+  data.append('file', {
+    uri,
+    type: 'image/jpeg', // change if needed
+    name: 'upload.jpg',
+  } as any);
+  data.append('upload_preset', 'PinPoint'); // <-- replace this with your actual preset
+
+  try {
+    const response = await fetch(
+      'https://api.cloudinary.com/v1_1/dsgvp6swh/image/upload',
+      {
+        method: 'POST',
+        body: data,
+        headers: {
+          Accept: 'application/json',
+        },
+      }
+    );
+    const result = await response.json();
+    if (response.ok) {
+      return result.secure_url; // uploaded image URL
+    } else {
+      console.error('Cloudinary upload error:', result);
+      return null;
+    }
+  } catch (error) {
+    console.error('Cloudinary upload failed:', error);
+    return null;
+  }
+}
+
+async function savePhotoEntryToFirestore(
+  photoUrl: string,
+  caption: string,
+  locationName: string,
+  latitude: string,
+  longitude: string
+) {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    console.error('User not logged in');
+    return;
+  }
+
+  const photoEntry = {
+    photoUrl,
+    caption,
+    locationName,
+    latitude,
+    longitude,
+    userId: currentUser.uid,
+    username: currentUser.displayName || 'Anonymous',
+    createdAt: new Date(),
+  };
+
+  try {
+    await addDoc(collection(db, 'photos'), photoEntry);
+    console.log('Photo saved successfully');
+  } catch (error) {
+    console.error('Failed to save photo:', error);
+  }
+}
+
+
+
 
   useEffect(() => {
   if (params.lat && params.lng) {
@@ -99,39 +171,73 @@ export default function CameraTabScreen() {
   };
 
   const handleSendPin = async () => {
-    if (!photoUri) {
-      alert('No photo captured');
+    const currentUser = auth.currentUser;
+
+    if (currentUser) {
+  console.log('Logged in user ID:', currentUser.uid);
+  console.log('Logged in username:', currentUser.displayName);
+  console.log('Logged in user email:', currentUser.email);
+} else {
+  console.log('No user is logged in');
+}
+  if (!photoUri) {
+    alert('No photo captured');
+    return;
+  }
+
+  try {
+    const uploadedUrl = await uploadImageToCloudinary(photoUri);
+    if (!uploadedUrl) {
+      alert('Image upload failed');
       return;
     }
 
-    try {
-      const locToUse = locationCoords || (await Location.getCurrentPositionAsync()).coords;
+    const locToUse = locationCoords || (await Location.getCurrentPositionAsync()).coords;
 
-      const photoEntry = {
-        photoUri,
-        caption,
-        latitude: locToUse.latitude.toString(),
-        longitude: locToUse.longitude.toString(),
-        locationName: locationName || '',
-      };
+    const photoEntry = {
+      photoUri: uploadedUrl,
+      caption,
+      latitude: locToUse.latitude.toString(),
+      longitude: locToUse.longitude.toString(),
+      locationName: locationName || '',
+    };
 
-      addPhoto(photoEntry);
+    // Save to Firestore
+    if (!currentUser) {
+  alert('You must be logged in to send a pin');
+  return;
+}
 
-      alert('Pin submitted!');
-      router.push('/map');
+await addDoc(collection(db, 'photos'), {
+  imageUrl: uploadedUrl,
+  caption,
+  locationName: locationName || '',
+  latitude: locToUse.latitude,
+  longitude: locToUse.longitude,
+  userId: currentUser.uid,
+  username: currentUser.displayName || 'null',
+  createdAt: new Date(),
+});
 
-      setTimeout(() => {
-        setPhotoUri(null);
-        setCaption('');
-        setLocationName(null);
-        setLocationCoords(null);
-        setIsFromGallery(false);
-      }, 500);
-    } catch (err) {
-      console.error('Failed to get location:', err);
-      alert('Location error');
-    }
-  };
+
+    addPhoto(photoEntry); // local state
+    alert('Pin submitted!');
+    router.push('/map');
+
+    setTimeout(() => {
+      setPhotoUri(null);
+      setCaption('');
+      setLocationName(null);
+      setLocationCoords(null);
+      setIsFromGallery(false);
+    }, 500);
+  } catch (err) {
+    console.error('Failed to get location or save:', err);
+    alert('Error saving pin.');
+  }
+};
+
+
 
   if (!permission) return <View style={styles.container} />;
 

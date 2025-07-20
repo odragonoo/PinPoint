@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { collection, getDocs } from 'firebase/firestore';
+import { getDownloadURL, ref } from 'firebase/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -19,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { db } from '../../lib/firebase';
 import { usePhotoStore } from '../../lib/PhotoContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -31,6 +34,7 @@ const hardcodedPins = [
     latitude: '33.7765',
     longitude: '-84.3981',
     locationName: 'Tech Square, Atlanta',
+    username: 'Alice',
   },
   {
     photoUri: require('../../assets/images/exPins/devilsElbow.png'),
@@ -38,6 +42,7 @@ const hardcodedPins = [
     latitude: '34.4435',
     longitude: '-84.2096',
     locationName: "Devil's Elbow, Dawsonville",
+    username: 'Alice',
   },
   {
     photoUri: require('../../assets/images/exPins/bunBoHue.png'),
@@ -45,6 +50,7 @@ const hardcodedPins = [
     latitude: '33.9572',
     longitude: '-84.1363',
     locationName: '3640 Satellite Blvd',
+    username: 'Alice',
   },
   {
     photoUri: require('../../assets/images/exPins/blackcatpt1.png'),
@@ -52,6 +58,7 @@ const hardcodedPins = [
     latitude: '33.7557',
     longitude: '-84.3911',
     locationName: 'Underground Atlanta',
+    username: 'Alice',
   },
   {
     photoUri: require('../../assets/images/exPins/blackcatpt2.png'),
@@ -59,12 +66,13 @@ const hardcodedPins = [
     latitude: '33.7557',
     longitude: '-84.3911',
     locationName: 'Underground Atlanta',
+    username: 'Alice',
   },
 ];
 
 export default function MapScreen() {
   const { photos } = usePhotoStore();
-  const allPhotos = [...photos, ...hardcodedPins];
+
 
   const mapRef = useRef<MapView>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -75,6 +83,46 @@ export default function MapScreen() {
   const isPickerMode = params?.mode === 'picker';
 
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [firebasePhotos, setFirebasePhotos] = useState<any[]>([]);
+
+  const allPhotos = [...photos, ...hardcodedPins, ...firebasePhotos];
+  useEffect(() => {
+  const fetchPhotos = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'photos'));
+
+      const photosData = await Promise.all(
+        querySnapshot.docs.map(async (doc) => {
+          const data = doc.data();
+
+          let photoUrl = data.imageUrl; // <-- Use imageUrl field here
+          if (photoUrl && !photoUrl.startsWith('http')) {
+            try {
+              photoUrl = await getDownloadURL(ref(storage, photoUrl));
+            } catch (err) {
+              console.error('Error getting download URL:', err);
+            }
+          }
+
+          return {
+            id: doc.id,
+            ...data,
+            photoUri: photoUrl,  // keep photoUri as the normalized URL field you use in your UI
+          };
+        })
+      );
+
+      setFirebasePhotos(photosData);
+    } catch (error) {
+      console.error('Error fetching photos:', error);
+    }
+  };
+
+  fetchPhotos();
+}, []);
+
+
+
 
   // Search state
   const [searchText, setSearchText] = useState('');
@@ -340,7 +388,9 @@ export default function MapScreen() {
             }}
           >
             <View style={styles.modalItem}>
-              <Text style={styles.modalLocationTop}>{photo.locationName}</Text>
+              <Text style={styles.modalUsernameTop}>{photo.username || 'Unknown user'}</Text>
+<Text style={styles.modalLocationTop}>{photo.locationName}</Text>
+
               <Image
                 source={
                   typeof photo.photoUri === 'string'
@@ -522,5 +572,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+modalUsernameTop: {
+  fontSize: 16,
+  fontWeight: '600',
+  marginBottom: 4,
+  textAlign: 'center',
+  color: 'white',
+},
 
 });
