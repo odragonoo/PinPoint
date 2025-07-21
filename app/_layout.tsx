@@ -1,6 +1,12 @@
 // app/_layout.tsx
 
+import { setJSExceptionHandler } from 'react-native-exception-handler';
 import 'react-native-gesture-handler'; // <--- ADD IT HERE, AS THE VERY FIRST LINE OF THE FILE
+
+setJSExceptionHandler((error, isFatal) => {
+  console.log('[Global JS Error]', error, 'Fatal:', isFatal);
+  // Optionally report error here
+}, true);
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -13,7 +19,6 @@ import { Stack, useRouter, useSegments } from 'expo-router'; // Import Stack
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../lib/contexts/AuthContext';
 import { PhotoProvider } from '../lib/PhotoContext';
-
 
 export default function RootLayout() {
   const [loaded] = useFonts({

@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pinpoint.voodoo",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow PinPoint to access your location to show posts near you.",
         "NSPhotoLibraryUsageDescription": "Allow PinPoint to access your photo library.",
