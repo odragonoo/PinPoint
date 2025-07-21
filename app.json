@@ -2,6 +2,7 @@
   "expo": {
     "name": "PinPoint",
     "slug": "PinPoint",
+    "jsEngine": "jsc",
     "version": "2",
     "orientation": "portrait",
     "icon": "./assets/images/Appicon.png",
@@ -11,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pinpoint.voodoo",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow PinPoint to access your location to show posts near you.",
         "NSPhotoLibraryUsageDescription": "Allow PinPoint to access your photo library.",
