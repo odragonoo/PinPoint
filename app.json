@@ -8,18 +8,16 @@
     "scheme": "testapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "bundleIdentifier": "com.voodoo.pinpoint",
-      "infoPlist": {
-        "NSCameraUsageDescription": "This app needs access to your camera."
-      }
-    },
-    // "ios": {
-      
-    //   "supportsTablet": true
-      
-      
-    // },
+   "ios": {
+  "supportsTablet": true,
+  "bundleIdentifier": "com.pinpoint.voodoo",
+  "buildNumber": "1.0.1",
+  "infoPlist": {
+    "NSLocationWhenInUseUsageDescription": "Allow PinPoint to access your location to show posts near you.",
+    "NSPhotoLibraryUsageDescription": "Allow PinPoint to access your photo library.",
+    "NSCameraUsageDescription": "Allow PinPoint to use your camera for photo uploads."
+  }
+},
     
     "android": {
       "adaptiveIcon": {
