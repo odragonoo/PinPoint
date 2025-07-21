@@ -2,16 +2,18 @@
   "expo": {
     "name": "PinPoint",
     "slug": "PinPoint",
-    "version": "1.0.0",
+    "version": "2",
     "orientation": "portrait",
     "icon": "./assets/images/Appicon.png",
     "scheme": "testapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
+
    "ios": {
   "supportsTablet": true,
   "bundleIdentifier": "com.pinpoint.voodoo",
-  "buildNumber": "1.0.1",
+  "buildNumber": "2",
   "infoPlist": {
     "NSLocationWhenInUseUsageDescription": "Allow PinPoint to access your location to show posts near you.",
     "NSPhotoLibraryUsageDescription": "Allow PinPoint to access your photo library.",
