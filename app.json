@@ -7,11 +7,11 @@
     "icon": "./assets/images/Appicon.png",
     "scheme": "testapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pinpoint.voodoo",
-      "buildNumber": "2",
+      "buildNumber": "7",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow PinPoint to access your location to show posts near you.",
         "NSPhotoLibraryUsageDescription": "Allow PinPoint to access your photo library.",
