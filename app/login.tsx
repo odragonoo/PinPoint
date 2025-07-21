@@ -29,7 +29,7 @@ const Login: React.FC = () => {
       <Text style={[styles.heading, { color: textColor }]}>Login</Text>
       <TextInput
         placeholder="Email"
-        style={styles.input}
+        style={[styles.input, { color: textColor }]}
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
@@ -37,7 +37,7 @@ const Login: React.FC = () => {
       />
       <TextInput
         placeholder="Password"
-        style={styles.input}
+        style={[styles.input, { color: textColor }]}
         onChangeText={setPassword}
         secureTextEntry
         placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#666'}

@@ -16,6 +16,7 @@ import {
   Text,
   TextInput,
   View,
+  useColorScheme,
 } from "react-native";
 import { auth, db } from "../lib/firebase";
 
@@ -41,6 +42,11 @@ const onboardingSlides = [
 
 const SignUp: React.FC = () => {
   const router = useRouter();
+
+  const colorScheme = useColorScheme();
+  const backgroundColor = colorScheme === 'dark' ? '#121212' : '#fff';
+  const textColor = colorScheme === 'dark' ? '#fff' : '#222';
+  const buttonColor = colorScheme === 'dark' ? '#fff' : '#222';
 
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [email, setEmail] = useState("");
@@ -77,7 +83,7 @@ const SignUp: React.FC = () => {
 
   if (!onboardingComplete) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor }]}>
         <ScrollView
           horizontal
           pagingEnabled
@@ -100,14 +106,15 @@ const SignUp: React.FC = () => {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={styles.heading}>Create Account</Text>
+      <Text style={[styles.heading, { color: textColor }]}>Create Account</Text>
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: textColor }]}
         placeholder="Email"
+        placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#666'}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -115,28 +122,31 @@ const SignUp: React.FC = () => {
       />
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: textColor }]}
         placeholder="Username"
+        placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#666'}
         value={username}
         onChangeText={setUsername}
         autoCapitalize="none"
       />
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: textColor }]}
         placeholder="Password"
+        placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#666'}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
 
-      <Button title="Sign Up" onPress={handleSignUp} />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <Button title="Sign Up" onPress={handleSignUp} color={buttonColor} />
+      {error ? <Text style={[styles.error, { color: colorScheme === 'dark' ? '#ff6b6b' : 'red' }]}>{error}</Text> : null}
 
       <View style={{ marginTop: 20 }}>
         <Button
           title="Already have an account? Log In"
           onPress={() => router.push("/login")}
+          color={buttonColor}
         />
       </View>
     </KeyboardAvoidingView>
@@ -146,7 +156,6 @@ const SignUp: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
     justifyContent: "center",
   },
   slide: {
