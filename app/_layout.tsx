@@ -1,5 +1,7 @@
 // app/_layout.tsx
 
+import 'react-native-gesture-handler'; // <--- ADD IT HERE, AS THE VERY FIRST LINE OF THE FILE
+
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
