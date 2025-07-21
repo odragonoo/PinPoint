@@ -10,6 +10,7 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
@@ -27,6 +28,9 @@ interface FirestoreUserProfile {
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<FirestoreUserProfile | null>(null);
+
+  const colorScheme = useColorScheme();
+  const iconColor = colorScheme === 'dark' ? '#fff' : '#222';
 
   // ✅ Placeholder images from local assets
   const placeholderPins = [
@@ -74,7 +78,7 @@ export default function ProfileScreen() {
         style={styles.settingsButton}
         onPress={() => router.push('/settings')}
       >
-        <Ionicons name="settings-outline" size={28} color="white" />
+        <Ionicons name="settings-outline" size={28} color={iconColor} />
       </TouchableOpacity>
 
       {/* Profile Content */}

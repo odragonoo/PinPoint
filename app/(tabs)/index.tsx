@@ -78,6 +78,16 @@ export default function MapScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
 
+  // Keeps track of liked photo IDs locally
+  const [likedPhotos, setLikedPhotos] = useState<{ [id: string]: boolean }>({});
+
+  const toggleLike = (photoId: string) => {
+    setLikedPhotos((prev) => ({
+      ...prev,
+      [photoId]: !prev[photoId],
+    }));
+  };
+
   const router = useRouter();
   const params = useLocalSearchParams();
   const isPickerMode = params?.mode === 'picker';
@@ -424,6 +434,17 @@ export default function MapScreen() {
     {photo.caption ? (
       <Text style={styles.modalCaptionBottom}>{photo.caption}</Text>
     ) : null}
+    {/* Heart Like Button */}
+    <TouchableOpacity
+      style={{ marginTop: 8, alignItems: 'center' }}
+      onPress={() => toggleLike(photo.id || `${index}`)}
+    >
+      <Ionicons
+        name={likedPhotos[photo.id || `${index}`] ? 'heart' : 'heart-outline'}
+        size={28}
+        color={likedPhotos[photo.id || `${index}`] ? '#FF3B30' : 'white'}
+      />
+    </TouchableOpacity>
   </View>
 
   {/* ABSOLUTE Username and Profile Picture in top-left */}

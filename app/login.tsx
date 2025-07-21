@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
-import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Button, StyleSheet, Text, TextInput, useColorScheme, View } from "react-native";
 import { auth } from "../lib/firebase";
 
 const Login: React.FC = () => {
+  const colorScheme = useColorScheme();
+  const textColor = colorScheme === 'dark' ? '#fff' : '#222';
+  const buttonColor = colorScheme === 'dark' ? '#fff' : '#222';
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,27 +26,30 @@ const Login: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Login</Text>
+      <Text style={[styles.heading, { color: textColor }]}>Login</Text>
       <TextInput
         placeholder="Email"
         style={styles.input}
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
+        placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#666'}
       />
       <TextInput
         placeholder="Password"
         style={styles.input}
         onChangeText={setPassword}
         secureTextEntry
+        placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#666'}
       />
-      <Button title="Login" onPress={handleLogin} />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <Button title="Login" onPress={handleLogin} color={buttonColor} />
+      {error ? <Text style={[styles.error, { color: colorScheme === 'dark' ? '#ff6b6b' : 'red' }]}>{error}</Text> : null}
       {/* Navigate to Sign Up */}
       <View style={{ marginTop: 20 }}>
         <Button
           title="Don't have an account? Sign Up"
           onPress={() => router.push('/signup')}
+          color={buttonColor}
         />
       </View>
     </View>
